@@ -4,8 +4,8 @@
     :class="{
       'bit-cell--selected': isSelected,
       'bit-cell--dragging': isDragSelected,
-      'bit-cell--field-0': fieldColors.length === 1,
-      'bit-cell--multi-field': fieldColors.length > 1,
+      'bit-cell--has-field': topOverlay !== null,
+      'bit-cell--empty': topOverlay === null,
     }"
     :style="cellStyle"
     @mousedown="onMouseDown"
@@ -13,8 +13,9 @@
     @contextmenu.prevent="onContextMenu"
     @click="onClick"
   >
-    <span class="bit-cell__value">{{ bitValue }}</span>
-    <span class="bit-cell__index">{{ bitIndex }}</span>
+    <span class="bit-cell__label" v-if="topOverlay">{{ getLabel(topOverlay) }}</span>
+    <span class="bit-cell__empty" v-else>·</span>
+    <span class="bit-cell__index">{{ bitLabel }}</span>
   </div>
 </template>
 
@@ -22,6 +23,8 @@
 import { computed } from 'vue'
 import { useSelectionStore } from '../../stores/selection'
 import { useByteViewStore } from '../../stores/byteView'
+import type { FieldOverlay } from '../../models/field'
+
 const props = defineProps<{
   byteOffset: number
   bitIndex: number  // 0-7, 0=MSB, 7=LSB
@@ -34,21 +37,20 @@ const emit = defineEmits<{
 const selectionStore = useSelectionStore()
 const byteViewStore = useByteViewStore()
 
-/** 当前bit的值 (0 或 1) */
-const bitValue = computed(() => {
-  const byte = byteViewStore.data[props.byteOffset]
-  if (byte === undefined) return 0
-  return (byte >> (7 - props.bitIndex)) & 1
-})
-
 /** 此bit位置的字段覆盖 */
 const fieldOverlays = computed(() => {
   return byteViewStore.getOverlaysAtBit(props.byteOffset, props.bitIndex)
 })
 
-/** 字段颜色 */
-const fieldColors = computed(() => {
-  return fieldOverlays.value.map(o => o.color)
+/** 最上层（最深）的 overlay */
+const topOverlay = computed(() => {
+  if (fieldOverlays.value.length === 0) return null
+  return fieldOverlays.value.reduce((a, b) => b.depth > a.depth ? b : a)
+})
+
+/** bit 位置标签 b7~b0 */
+const bitLabel = computed(() => {
+  return `b${7 - props.bitIndex}`
 })
 
 /** 是否被选中（字段选中） */
@@ -67,21 +69,22 @@ const isDragSelected = computed(() => {
 
 /** 单元格样式 */
 const cellStyle = computed(() => {
-  if (fieldColors.value.length === 1) {
-    return { backgroundColor: fieldColors.value[0] }
-  }
-  if (fieldColors.value.length > 1) {
-    // 多个字段覆盖时，用最深层（最内层）的颜色
-    const deepest = fieldOverlays.value.reduce((a, b) =>
-      b.depth > a.depth ? b : a
-    )
-    return { backgroundColor: deepest.color }
+  if (topOverlay.value) {
+    return { backgroundColor: topOverlay.value.color }
   }
   return {}
 })
 
+/** 获取显示标签：字段名前2~3个字符 */
+function getLabel(overlay: FieldOverlay): string {
+  const name = overlay.fieldName
+  if (!name) return overlay.isBitField ? 'b' : '?'
+  // 取字段名的前3个字符
+  return name.length <= 3 ? name : name.slice(0, 3)
+}
+
 function onMouseDown(e: MouseEvent) {
-  if (e.button === 0) { // 左键
+  if (e.button === 0) {
     selectionStore.startDrag(props.byteOffset, props.bitIndex)
   }
 }
@@ -97,12 +100,8 @@ function onContextMenu(e: MouseEvent) {
 }
 
 function onClick(_e: MouseEvent) {
-  // 点击时选中该位置所在的字段
-  const overlay = fieldOverlays.value.length > 0
-    ? fieldOverlays.value.reduce((a, b) => b.depth > a.depth ? b : a)
-    : null
-  if (overlay) {
-    selectionStore.selectField(overlay.fieldId)
+  if (topOverlay.value) {
+    selectionStore.selectField(topOverlay.value.fieldId)
   }
 }
 </script>
@@ -113,7 +112,7 @@ function onClick(_e: MouseEvent) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  width: 42px;
   height: 36px;
   border: 1px solid #3a3a3a;
   cursor: pointer;
@@ -138,16 +137,30 @@ function onClick(_e: MouseEvent) {
   border-color: #4285f4;
 }
 
-.bit-cell__value {
-  font-size: 14px;
+.bit-cell--has-field {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.bit-cell__label {
+  font-size: 10px;
   font-family: 'Consolas', 'Monaco', monospace;
-  font-weight: bold;
+  font-weight: 600;
   color: #e0e0e0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 2px;
+}
+
+.bit-cell__empty {
+  font-size: 14px;
+  color: #444;
 }
 
 .bit-cell__index {
-  font-size: 9px;
-  color: #888;
+  font-size: 8px;
+  color: #666;
   position: absolute;
   bottom: 1px;
   right: 2px;
