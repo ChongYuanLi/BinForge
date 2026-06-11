@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 import type { ProtocolField, EnumDefinition } from '../models/field'
 import { createEmptyProtocol } from '../models/protocol'
 import type { Protocol as ProtocolType } from '../models/protocol'
+import { resetColors } from '../services/colorPalette'
 
 export const useProtocolStore = defineStore('protocol', () => {
   // 当前协议
@@ -124,6 +125,7 @@ export const useProtocolStore = defineStore('protocol', () => {
   /** 加载协议 */
   function loadProtocol(p: ProtocolType): void {
     saveSnapshot()
+    resetColors()
     protocol.value = p
   }
 

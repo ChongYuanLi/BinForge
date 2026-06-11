@@ -3,8 +3,7 @@
  * 为每个字段分配可区分的半透明颜色
  */
 
-// 调色板：HSL色相均匀分布，饱和度和亮度适中
-// 每个颜色带 alpha 通道用于半透明覆盖
+// 调色板：16色，半透明背景 + 边框 + 文字
 const PALETTE = [
   { bg: 'rgba(66, 133, 244, 0.25)',  border: '#4285f4', text: '#4285f4' },   // 蓝
   { bg: 'rgba(234, 67, 53, 0.25)',   border: '#ea4335', text: '#ea4335' },   // 红
@@ -24,29 +23,23 @@ const PALETTE = [
   { bg: 'rgba(129, 212, 250, 0.25)', border: '#81d4fa', text: '#0277bd' },   // 浅蓝
 ]
 
-let colorIndex = 0
+/** 字段ID → 颜色索引的映射表 */
+const colorMap = new Map<string, number>()
+let nextIndex = 0
 
-/** 重置颜色索引 */
+/** 重置所有颜色分配（新建协议时调用） */
 export function resetColors(): void {
-  colorIndex = 0
+  colorMap.clear()
+  nextIndex = 0
 }
 
-/** 获取下一个颜色 */
-export function getNextColor(): { bg: string; border: string; text: string } {
-  const color = PALETTE[colorIndex % PALETTE.length]
-  colorIndex++
-  return color
-}
-
-/** 根据字段ID获取颜色（稳定映射） */
+/** 获取字段颜色（稳定映射：同一字段ID始终同一颜色） */
 export function getFieldColor(fieldId: string): { bg: string; border: string; text: string } {
-  // 用 fieldId 的 hash 值来选择颜色，保证同一个字段总是同一颜色
-  let hash = 0
-  for (let i = 0; i < fieldId.length; i++) {
-    hash = ((hash << 5) - hash) + fieldId.charCodeAt(i)
-    hash |= 0
+  if (!colorMap.has(fieldId)) {
+    colorMap.set(fieldId, nextIndex)
+    nextIndex++
   }
-  return PALETTE[Math.abs(hash) % PALETTE.length]
+  return PALETTE[colorMap.get(fieldId)! % PALETTE.length]
 }
 
 /** 预设颜色列表供外部使用 */
