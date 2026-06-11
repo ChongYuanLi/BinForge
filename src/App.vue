@@ -24,16 +24,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import MainToolbar from './components/Toolbar/MainToolbar.vue'
 import FieldTree from './components/FieldList/FieldTree.vue'
 import ByteGrid from './components/ByteView/ByteGrid.vue'
 import FieldEditor from './components/PropertyPanel/FieldEditor.vue'
 import { useSelectionStore } from './stores/selection'
 import { useByteViewStore } from './stores/byteView'
+import { useProtocolStore } from './stores/protocol'
 
 const selectionStore = useSelectionStore()
 const byteViewStore = useByteViewStore()
+const protocolStore = useProtocolStore()
 
 const hasSelectedField = computed(() => selectionStore.selectedFieldId !== null)
 
@@ -50,7 +52,39 @@ onMounted(() => {
     sampleData[i] = i & 0xFF
   }
   byteViewStore.setData(sampleData)
+
+  // 全局快捷键
+  document.addEventListener('keydown', onKeydown)
 })
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+})
+
+function onKeydown(e: KeyboardEvent) {
+  // Ctrl+Z 撤销
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+    e.preventDefault()
+    protocolStore.undo()
+  }
+  // Ctrl+Y 或 Ctrl+Shift+Z 重做
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) {
+    e.preventDefault()
+    protocolStore.redo()
+  }
+  // Delete 删除选中字段
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectionStore.selectedFieldId) {
+      // 不在输入框中时才响应
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+        e.preventDefault()
+        protocolStore.removeField(selectionStore.selectedFieldId)
+        selectionStore.selectField(null)
+      }
+    }
+  }
+}
 </script>
 
 <style>
