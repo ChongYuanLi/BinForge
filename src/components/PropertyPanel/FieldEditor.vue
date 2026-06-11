@@ -163,7 +163,17 @@ function onNameChange() {
 function onTypeChange() {
   if (field.value) {
     const updates: Partial<typeof field.value> = { type: editType.value }
-    if (!isBitType(editType.value) && editType.value !== 'str' && editType.value !== 'strz' && editType.value !== 'bytes') {
+    if (isBitType(editType.value)) {
+      // bit类型，size设为0
+      updates.size = 0
+    } else if (['str', 'strz', 'bytes'].includes(editType.value)) {
+      // 变长类型，如果当前size为0则给默认值1
+      if (field.value.size <= 0) {
+        updates.size = 1
+        editSize.value = 1
+      }
+    } else {
+      // 标量类型，自动设置对应字节数
       updates.size = FIELD_TYPE_BYTES[editType.value]
     }
     protocolStore.updateField(field.value.id, updates)
