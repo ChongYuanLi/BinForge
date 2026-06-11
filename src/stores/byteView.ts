@@ -219,6 +219,64 @@ export const useByteViewStore = defineStore('byteView', () => {
     }
   }
 
+  /**
+   * 按字节序读取字段值
+   * @param byteOffset 起始字节偏移
+   * @param size 字节数
+   * @param endian 字节序，'be'=大端, 'le'=小端
+   */
+  function readFieldValue(byteOffset: number, size: number, endian: 'be' | 'le'): number {
+    let result = 0
+    for (let i = 0; i < size; i++) {
+      const byte = data.value[byteOffset + i] ?? 0
+      if (endian === 'be') {
+        result = (result << 8) | byte
+      } else {
+        result |= byte << (i * 8)
+      }
+    }
+    return result >>> 0 // 无符号
+  }
+
+  /**
+   * 按字节序读取有符号字段值
+   */
+  function readFieldSignedValue(byteOffset: number, size: number, endian: 'be' | 'le'): number {
+    const unsigned = readFieldValue(byteOffset, size, endian)
+    const bits = size * 8
+    const signBit = 1 << (bits - 1)
+    return (unsigned & signBit) ? (unsigned - (1 << bits)) : unsigned
+  }
+
+  /**
+   * 按字节序读取浮点值
+   */
+  function readFieldFloatValue(byteOffset: number, size: number, endian: 'be' | 'le'): number {
+    const buf = new ArrayBuffer(size)
+    const view = new DataView(buf)
+    for (let i = 0; i < size; i++) {
+      view.setUint8(i, data.value[byteOffset + i] ?? 0)
+    }
+    if (size === 4) return view.getFloat32(0, endian === 'le')
+    if (size === 8) return view.getFloat64(0, endian === 'le')
+    return 0
+  }
+
+  /**
+   * 按字节序写入字段值
+   */
+  function writeFieldValue(byteOffset: number, size: number, value: number, endian: 'be' | 'le'): void {
+    const newData = new Uint8Array(data.value)
+    for (let i = 0; i < size; i++) {
+      if (endian === 'be') {
+        newData[byteOffset + i] = (value >> ((size - 1 - i) * 8)) & 0xFF
+      } else {
+        newData[byteOffset + i] = (value >> (i * 8)) & 0xFF
+      }
+    }
+    data.value = newData
+  }
+
   return {
     data,
     bytesPerRow,
@@ -230,5 +288,9 @@ export const useByteViewStore = defineStore('byteView', () => {
     setByte,
     setBit,
     ensureSize,
+    readFieldValue,
+    readFieldSignedValue,
+    readFieldFloatValue,
+    writeFieldValue,
   }
 })
