@@ -3,45 +3,50 @@
  * 定义协议中每个字段的结构
  */
 
-/** 字段类型 */
-export type FieldType =
-  | 'u1' | 'u2' | 'u4' | 'u8'
-  | 's1' | 's2' | 's4' | 's8'
-  | 'f4' | 'f8'
-  | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 'b6' | 'b7' | 'b8'
-  | 'b9' | 'b10' | 'b11' | 'b12' | 'b13' | 'b14' | 'b15' | 'b16'
-  | 'str' | 'strz'
-  | 'bytes'
-  | 'custom'
+/** 字段类型 — bN 支持任意位宽 (b1~b64) */
+export type FieldType = string
 
 /** 字段类型的字节大小，bit类型返回0 */
-export const FIELD_TYPE_BYTES: Record<FieldType, number> = {
-  u1: 1, u2: 2, u4: 4, u8: 8,
-  s1: 1, s2: 2, s4: 4, s8: 8,
-  f4: 4, f8: 8,
-  b1: 0, b2: 0, b3: 0, b4: 0, b5: 0, b6: 0, b7: 0, b8: 0,
-  b9: 0, b10: 0, b11: 0, b12: 0, b13: 0, b14: 0, b15: 0, b16: 0,
-  str: 0, strz: 0,
-  bytes: 0,
-  custom: 0,
+export function getFieldBytes(type: string): number {
+  if (isBitType(type)) return 0
+  const map: Record<string, number> = {
+    u1: 1, u2: 2, u4: 4, u8: 8,
+    s1: 1, s2: 2, s4: 4, s8: 8,
+    f4: 4, f8: 8,
+    str: 0, strz: 0,
+    bytes: 0, custom: 0,
+  }
+  return map[type] ?? 0
 }
 
 /** 字段类型的位大小 */
-export const FIELD_TYPE_BITS: Record<FieldType, number> = {
-  u1: 8, u2: 16, u4: 32, u8: 64,
-  s1: 8, s2: 16, s4: 32, s8: 64,
-  f4: 32, f8: 64,
-  b1: 1, b2: 2, b3: 3, b4: 4, b5: 5, b6: 6, b7: 7, b8: 8,
-  b9: 9, b10: 10, b11: 11, b12: 12, b13: 13, b14: 14, b15: 15, b16: 16,
-  str: 0, strz: 0,
-  bytes: 0,
-  custom: 0,
+export function getFieldBits(type: string): number {
+  if (isBitType(type)) {
+    const n = parseInt(type.substring(1), 10)
+    return isNaN(n) ? 0 : n
+  }
+  const map: Record<string, number> = {
+    u1: 8, u2: 16, u4: 32, u8: 64,
+    s1: 8, s2: 16, s4: 32, s8: 64,
+    f4: 32, f8: 64,
+  }
+  return map[type] ?? 0
 }
 
-/** 是否是bit类型 */
-export function isBitType(type: FieldType): boolean {
-  return type.startsWith('b') && type !== 'bytes'
+/** 是否是bit类型 (b1, b4, b37, b64 等) */
+export function isBitType(type: string): boolean {
+  return /^b\d+$/.test(type)
 }
+
+// 兼容旧代码的常量导出（通过 Proxy 支持任意 bN 访问）
+const _bytes: Record<string, number> = { u1: 1, u2: 2, u4: 4, u8: 8, s1: 1, s2: 2, s4: 4, s8: 8, f4: 4, f8: 8, str: 0, strz: 0, bytes: 0, custom: 0 }
+const _bits: Record<string, number> = { u1: 8, u2: 16, u4: 32, u8: 64, s1: 8, s2: 16, s4: 32, s8: 64, f4: 32, f8: 64 }
+export const FIELD_TYPE_BYTES: Record<string, number> = new Proxy(_bytes, {
+  get: (t, p: string) => (p in t) ? t[p] : (isBitType(p) ? 0 : 0),
+})
+export const FIELD_TYPE_BITS: Record<string, number> = new Proxy(_bits, {
+  get: (t, p: string) => (p in t) ? t[p] : (isBitType(p) ? parseInt(p.substring(1), 10) || 0 : 0),
+})
 
 /** 枚举值定义 */
 export interface EnumValue {

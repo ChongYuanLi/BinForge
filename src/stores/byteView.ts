@@ -182,10 +182,8 @@ export const useByteViewStore = defineStore('byteView', () => {
     return fieldOverlays.value.filter(o => {
       if (byteOffset < o.byteStart || byteOffset > o.byteEnd) return false
       if (o.isBitField && o.bitStart !== undefined && o.bitEnd !== undefined) {
-        // bit字段：每个overlay已拆分为单字节，直接比较bitIndex
         return o.byteStart === byteOffset && bitIndex >= o.bitStart && bitIndex <= o.bitEnd
       }
-      // 非bit字段覆盖整个字节
       return true
     })
   }
