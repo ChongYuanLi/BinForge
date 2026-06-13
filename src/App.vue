@@ -5,9 +5,10 @@
 
     <!-- 主内容区 -->
     <div class="app__main">
-      <!-- 左侧：字段列表 -->
+      <!-- 左侧：字段列表 + 枚举 -->
       <div class="app__sidebar">
         <FieldTree />
+        <EnumEditor />
       </div>
 
       <!-- 中央：字节位视图 -->
@@ -29,6 +30,7 @@ import MainToolbar from './components/Toolbar/MainToolbar.vue'
 import FieldTree from './components/FieldList/FieldTree.vue'
 import ByteGrid from './components/ByteView/ByteGrid.vue'
 import FieldEditor from './components/PropertyPanel/FieldEditor.vue'
+import EnumEditor from './components/PropertyPanel/EnumEditor.vue'
 import { useSelectionStore } from './stores/selection'
 import { useByteViewStore } from './stores/byteView'
 import { useProtocolStore } from './stores/protocol'
