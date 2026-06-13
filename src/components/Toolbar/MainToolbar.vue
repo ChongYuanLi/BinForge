@@ -155,7 +155,13 @@ function onRedo() {
 }
 
 function onTitleChange() {
-  protocolStore.updateMeta({ title: protocolTitle.value })
+  // 同步更新 id（转为合法标识符：小写+下划线）
+  const id = protocolTitle.value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '') || 'new_protocol'
+  protocolStore.updateMeta({ title: protocolTitle.value, id })
 }
 
 function onEndianChange() {
