@@ -11,6 +11,7 @@
         :key="item.field.id"
         :field="item.field"
         :byteOffset="item.byteOffset"
+        :depth="item.depth"
       />
     </div>
 
@@ -32,47 +33,41 @@ const protocolStore = useProtocolStore()
 
 const fields = computed(() => protocolStore.protocol.fields)
 
-/** 计算每个字段的字节偏移 */
+/** 计算每个字段的字节偏移（递归展开子字段） */
 const fieldEntries = computed(() => {
-  const entries: { field: ProtocolField; byteOffset: number }[] = []
+  const entries: { field: ProtocolField; byteOffset: number; depth: number }[] = []
   let byteOffset = 0
   let bitOffset = 0
 
-  function collect(list: ProtocolField[]) {
+  function collect(list: ProtocolField[], depth: number) {
     for (const field of list) {
       if (isBitType(field.type)) {
         if (field.bitRange) {
-          // 有显式 bitRange（可能跨字节）
-          entries.push({ field, byteOffset: Math.floor(field.bitRange[0] / 8) })
+          entries.push({ field, byteOffset: Math.floor(field.bitRange[0] / 8), depth })
           const endByte = Math.floor(field.bitRange[1] / 8)
           byteOffset = endByte
           bitOffset = (field.bitRange[1] % 8) + 1
-          while (bitOffset >= 8) {
-            bitOffset -= 8
-            byteOffset++
-          }
+          while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
         } else {
-          // 流式布局
-          entries.push({ field, byteOffset })
+          entries.push({ field, byteOffset, depth })
           const bitCount = FIELD_TYPE_BITS[field.type]
           bitOffset += bitCount
-          while (bitOffset >= 8) {
-            bitOffset -= 8
-            byteOffset++
-          }
+          while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
         }
       } else {
-        if (bitOffset > 0) {
-          bitOffset = 0
-          byteOffset++
+        if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
+        entries.push({ field, byteOffset, depth })
+        // 递归展开子字段
+        if (field.children && field.children.length > 0) {
+          collect(field.children, depth + 1)
+        } else {
+          byteOffset += field.size || FIELD_TYPE_BYTES[field.type]
         }
-        entries.push({ field, byteOffset })
-        byteOffset += field.size || FIELD_TYPE_BYTES[field.type]
       }
     }
   }
 
-  collect(fields.value)
+  collect(fields.value, 0)
   return entries
 })
 </script>

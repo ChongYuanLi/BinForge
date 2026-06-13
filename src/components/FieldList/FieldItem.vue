@@ -2,7 +2,7 @@
   <div
     class="field-item"
     :class="{ 'field-item--selected': isSelected, 'field-item--hovered': isHovered }"
-    :style="{ borderLeftColor: fieldColor }"
+    :style="{ borderLeftColor: fieldColor, paddingLeft: (8 + depth * 16) + 'px' }"
     @click="onClick"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
@@ -27,10 +27,13 @@ import { getFieldColor } from '../../services/colorPalette'
 import type { ProtocolField } from '../../models/field'
 import { isBitType, FIELD_TYPE_BITS, FIELD_TYPE_BYTES } from '../../models/field'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   field: ProtocolField
   byteOffset: number
-}>()
+  depth?: number
+}>(), {
+  depth: 0,
+})
 
 const selectionStore = useSelectionStore()
 
