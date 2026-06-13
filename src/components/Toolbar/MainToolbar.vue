@@ -7,7 +7,7 @@
       <button class="toolbar__btn" @click="onImportKsy" title="导入 .ksy 文件">
         <span class="toolbar__icon">📂</span> 导入.ksy
       </button>
-      <button class="toolbar__btn" @click="onExportKsy" title="导出 .ksy 文件">
+      <button class="toolbar__btn" @click="onExportKsy" :disabled="!hasFields" title="导出 .ksy 文件">
         <span class="toolbar__icon">💾</span> 导出.ksy
       </button>
     </div>
@@ -15,10 +15,10 @@
     <div class="toolbar__divider"></div>
 
     <div class="toolbar__group">
-      <button class="toolbar__btn" @click="onImportData" title="导入二进制数据">
+      <button class="toolbar__btn" @click="onImportData" :disabled="!hasFields" title="导入二进制数据">
         <span class="toolbar__icon">📥</span> 导入数据
       </button>
-      <button class="toolbar__btn" @click="onParseData" title="使用协议解析数据">
+      <button class="toolbar__btn" @click="onParseData" :disabled="!hasFields" title="使用协议解析数据">
         <span class="toolbar__icon">▶</span> 解析
       </button>
     </div>
@@ -74,6 +74,7 @@ const endian = ref(protocolStore.protocol.endian)
 
 const undoCount = computed(() => protocolStore.undoStack.length)
 const redoCount = computed(() => protocolStore.redoStack.length)
+const hasFields = computed(() => protocolStore.protocol.fields.length > 0)
 
 function onNewProtocol() {
   if (confirm('确定新建协议？当前未保存的更改将丢失。')) {
