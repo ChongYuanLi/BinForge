@@ -106,7 +106,7 @@ onUnmounted(() => {
 
 .bit-header {
   display: inline-block;
-  width: 36px;
+  width: 42px;
   text-align: center;
   font-size: 10px;
   color: #666;
