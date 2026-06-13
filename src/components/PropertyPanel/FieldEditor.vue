@@ -50,6 +50,9 @@
             <option value="strz">strz (null结尾)</option>
             <option value="bytes">bytes (原始字节)</option>
           </optgroup>
+          <optgroup label="自定义类型" v-if="customTypeNames.length > 0">
+            <option v-for="name in customTypeNames" :key="name" :value="'custom:' + name">{{ name }}</option>
+          </optgroup>
         </select>
       </div>
 
@@ -250,7 +253,7 @@ const editRepeatUntilExpr = ref('')
 watch(field, (f) => {
   if (f) {
     editName.value = f.name
-    editType.value = f.type
+    editType.value = f.type === 'custom' && f.customTypeName ? `custom:${f.customTypeName}` : f.type
     editSize.value = f.size
     editSizeExpr.value = f.sizeExpr || ''
     editSizeEos.value = f.sizeEos || false
@@ -282,6 +285,10 @@ const enumOptions = computed(() => {
   return Array.from(protocolStore.protocol.enums.keys())
 })
 
+const customTypeNames = computed(() => {
+  return Array.from(protocolStore.protocol.types.keys())
+})
+
 // 事件处理
 function onNameChange() {
   if (field.value) {
@@ -291,17 +298,34 @@ function onNameChange() {
 
 function onTypeChange() {
   if (field.value) {
-    const updates: Record<string, any> = { type: editType.value }
-    if (isBitType(editType.value)) {
-      updates.size = 0
-    } else if (['str', 'strz', 'bytes'].includes(editType.value)) {
-      if (field.value.size <= 0) {
-        updates.size = 1
-        editSize.value = 1
+    const updates: Record<string, any> = {}
+    const typeVal = editType.value
+
+    // 处理自定义类型 custom:xxx
+    if (typeVal.startsWith('custom:')) {
+      const customName = typeVal.substring(7)
+      updates.type = 'custom'
+      updates.customTypeName = customName
+      // 展开子字段
+      const typeFields = protocolStore.protocol.types.get(customName)
+      if (typeFields) {
+        updates.children = typeFields.map(f => ({ ...f, id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` }))
+        updates.size = updates.children.reduce((sum: number, f: any) => sum + (f.size || 0), 0)
       }
     } else {
-      updates.size = FIELD_TYPE_BYTES[editType.value]
+      updates.type = typeVal
+      if (isBitType(typeVal)) {
+        updates.size = 0
+      } else if (['str', 'strz', 'bytes'].includes(typeVal)) {
+        if (field.value.size <= 0) {
+          updates.size = 1
+          editSize.value = 1
+        }
+      } else {
+        updates.size = FIELD_TYPE_BYTES[typeVal]
+      }
     }
+
     // 切换类型时清除 contents
     if (editContents.value) {
       editContents.value = ''
