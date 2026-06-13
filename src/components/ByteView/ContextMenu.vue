@@ -10,16 +10,38 @@
         <span class="context-menu__icon">+</span>
         新建字段
       </div>
+
       <div class="context-menu__divider"></div>
-      <div class="context-menu__item" @click="onQuickType('u1')">u1 (1字节)</div>
-      <div class="context-menu__item" @click="onQuickType('u2')">u2 (2字节)</div>
-      <div class="context-menu__item" @click="onQuickType('u4')">u4 (4字节)</div>
-      <div class="context-menu__item" @click="onQuickType('u8')">u8 (8字节)</div>
+      <div class="context-menu__group">无符号</div>
+      <div class="context-menu__item" @click="onQuickType('u1')">u1</div>
+      <div class="context-menu__item" @click="onQuickType('u2')">u2</div>
+      <div class="context-menu__item" @click="onQuickType('u4')">u4</div>
+      <div class="context-menu__item" @click="onQuickType('u8')">u8</div>
+
       <div class="context-menu__divider"></div>
-      <div class="context-menu__item" @click="onQuickType('b1')">b1 (1位)</div>
-      <div class="context-menu__item" @click="onQuickType('b2')">b2 (2位)</div>
-      <div class="context-menu__item" @click="onQuickType('b4')">b4 (4位)</div>
-      <div class="context-menu__item" @click="onQuickType('b8')">b8 (8位)</div>
+      <div class="context-menu__group">有符号</div>
+      <div class="context-menu__item" @click="onQuickType('s1')">s1</div>
+      <div class="context-menu__item" @click="onQuickType('s2')">s2</div>
+      <div class="context-menu__item" @click="onQuickType('s4')">s4</div>
+      <div class="context-menu__item" @click="onQuickType('s8')">s8</div>
+
+      <div class="context-menu__divider"></div>
+      <div class="context-menu__group">浮点</div>
+      <div class="context-menu__item" @click="onQuickType('f4')">f4</div>
+      <div class="context-menu__item" @click="onQuickType('f8')">f8</div>
+
+      <div class="context-menu__divider"></div>
+      <div class="context-menu__group">位字段</div>
+      <div class="context-menu__item" @click="onQuickType('b1')">b1</div>
+      <div class="context-menu__item" @click="onQuickType('b2')">b2</div>
+      <div class="context-menu__item" @click="onQuickType('b4')">b4</div>
+      <div class="context-menu__item" @click="onQuickType('b8')">b8</div>
+
+      <div class="context-menu__divider"></div>
+      <div class="context-menu__group">字符串/字节</div>
+      <div class="context-menu__item" @click="onQuickType('str')">str</div>
+      <div class="context-menu__item" @click="onQuickType('strz')">strz</div>
+      <div class="context-menu__item" @click="onQuickType('bytes')">bytes</div>
       <template v-if="selectedFieldId || hasSelection">
         <div class="context-menu__divider"></div>
         <div class="context-menu__item context-menu__item--danger" @click="onDeleteField">
@@ -120,7 +142,6 @@ function onQuickType(type: FieldType) {
 
   if (isBitType(type)) {
     const bitCount = FIELD_TYPE_BITS[type]
-    // 计算结束位置 (全局bit偏移)
     const globalStart = byteOffset * 8 + bitIndex
     const globalEnd = globalStart + bitCount - 1
     const endByte = Math.floor(globalEnd / 8)
@@ -129,10 +150,12 @@ function onQuickType(type: FieldType) {
     field.name = `field_b${bitCount}_${byteOffset}`
     protocolStore.addField(field)
   } else {
-    const byteCount = FIELD_TYPE_BYTES[type]
     const field = createEmptyField(byteOffset)
     field.type = type
-    field.size = byteCount
+    // str/strz/bytes 默认大小：用选区字节数，否则1
+    const sel = selectionStore.selectionByteRange
+    const defaultSize = sel ? (sel[1] - sel[0] + 1) : 1
+    field.size = FIELD_TYPE_BYTES[type] || defaultSize
     field.name = `field_${type}_${byteOffset}`
     protocolStore.addField(field)
   }
@@ -244,5 +267,13 @@ defineExpose({ show, hide })
   height: 1px;
   background: #444;
   margin: 4px 0;
+}
+
+.context-menu__group {
+  padding: 4px 14px 2px;
+  font-size: 10px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>
