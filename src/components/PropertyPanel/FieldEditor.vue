@@ -6,6 +6,7 @@
     </div>
 
     <div class="field-editor__form">
+      <!-- 名称 -->
       <div class="field-editor__row">
         <label>名称</label>
         <input
@@ -16,6 +17,7 @@
         />
       </div>
 
+      <!-- 类型 -->
       <div class="field-editor__row">
         <label>类型</label>
         <select v-model="editType" class="field-editor__select" @change="onTypeChange">
@@ -38,14 +40,12 @@
           <optgroup label="位字段">
             <option value="b1">b1 (1位)</option>
             <option value="b2">b2 (2位)</option>
-            <option value="b3">b3 (3位)</option>
             <option value="b4">b4 (4位)</option>
-            <option value="b5">b5 (5位)</option>
-            <option value="b6">b6 (6位)</option>
-            <option value="b7">b7 (7位)</option>
             <option value="b8">b8 (8位)</option>
+            <option value="b16">b16 (16位)</option>
+            <option value="b32">b32 (32位)</option>
           </optgroup>
-          <optgroup label="其他">
+          <optgroup label="字符串/字节">
             <option value="str">str (字符串)</option>
             <option value="strz">strz (null结尾)</option>
             <option value="bytes">bytes (原始字节)</option>
@@ -53,6 +53,7 @@
         </select>
       </div>
 
+      <!-- 大小 -->
       <div class="field-editor__row" v-if="needsSize">
         <label>大小</label>
         <input
@@ -60,11 +61,13 @@
           class="field-editor__input"
           type="number"
           min="1"
+          :disabled="editSizeEos"
           @change="onSizeChange"
         />
         <span class="field-editor__unit">字节</span>
       </div>
 
+      <!-- 大小表达式 -->
       <div class="field-editor__row" v-if="needsSizeExpr">
         <label>大小表达式</label>
         <input
@@ -75,7 +78,45 @@
         />
       </div>
 
+      <!-- 读到末尾 -->
+      <div class="field-editor__row" v-if="canSizeEos">
+        <label>读到末尾</label>
+        <input
+          type="checkbox"
+          v-model="editSizeEos"
+          @change="onSizeEosChange"
+        />
+        <span class="field-editor__hint">size-eos</span>
+      </div>
+
+      <!-- 魔数字节 -->
       <div class="field-editor__row">
+        <label>魔数字节</label>
+        <input
+          v-model="editContents"
+          class="field-editor__input"
+          placeholder="AA 55 或 0xAA,0x55"
+          @change="onContentsChange"
+        />
+      </div>
+
+      <!-- 字符串编码 -->
+      <div class="field-editor__row" v-if="needsEncoding">
+        <label>编码</label>
+        <select v-model="editEncoding" class="field-editor__select" @change="onEncodingChange">
+          <option value="UTF-8">UTF-8</option>
+          <option value="ASCII">ASCII</option>
+          <option value="ISO-8859-1">ISO-8859-1</option>
+          <option value="UTF-16LE">UTF-16LE</option>
+          <option value="UTF-16BE">UTF-16BE</option>
+          <option value="Shift_JIS">Shift_JIS</option>
+          <option value="EUC-JP">EUC-JP</option>
+          <option value="Windows-1252">Windows-1252</option>
+        </select>
+      </div>
+
+      <!-- 字节序 -->
+      <div class="field-editor__row" v-if="!isBitField">
         <label>字节序</label>
         <select v-model="editEndian" class="field-editor__select" @change="onEndianChange">
           <option value="">跟随协议</option>
@@ -84,9 +125,72 @@
         </select>
       </div>
 
+      <!-- 位序 -->
+      <div class="field-editor__row" v-if="isBitField">
+        <label>位序</label>
+        <select v-model="editBitEndian" class="field-editor__select" @change="onBitEndianChange">
+          <option value="">跟随协议</option>
+          <option value="be">Big-Endian (MSB先)</option>
+          <option value="le">Little-Endian (LSB先)</option>
+        </select>
+      </div>
+
+      <!-- 条件表达式 -->
+      <div class="field-editor__row">
+        <label>条件 (if)</label>
+        <input
+          v-model="editCondition"
+          class="field-editor__input"
+          placeholder="如: header.version > 2"
+          @change="onConditionChange"
+        />
+      </div>
+
+      <!-- 重复模式 -->
+      <div class="field-editor__row">
+        <label>重复</label>
+        <select v-model="editRepeatMode" class="field-editor__select" @change="onRepeatChange">
+          <option value="">不重复</option>
+          <option value="eos">重复到末尾 (eos)</option>
+          <option value="expr">按次数重复 (expr)</option>
+          <option value="until">条件重复 (until)</option>
+        </select>
+      </div>
+
+      <div class="field-editor__row" v-if="editRepeatMode === 'expr'">
+        <label>重复次数</label>
+        <input
+          v-model="editRepeatExpr"
+          class="field-editor__input"
+          placeholder="如: count 或 10"
+          @change="onRepeatChange"
+        />
+      </div>
+
+      <div class="field-editor__row" v-if="editRepeatMode === 'until'">
+        <label>终止条件</label>
+        <input
+          v-model="editRepeatUntilExpr"
+          class="field-editor__input"
+          placeholder="如: _.len == 0"
+          @change="onRepeatChange"
+        />
+      </div>
+
+      <!-- 枚举 -->
       <div class="field-editor__row">
         <label>枚举</label>
+        <select
+          v-if="enumOptions.length > 0"
+          v-model="editEnumName"
+          class="field-editor__select"
+          @change="onEnumChange"
+        >
+          <option value="">无</option>
+          <option v-for="name in enumOptions" :key="name" :value="name">{{ name }}</option>
+        </select>
         <input
+          v-else
           v-model="editEnumName"
           class="field-editor__input"
           placeholder="枚举名称"
@@ -94,6 +198,7 @@
         />
       </div>
 
+      <!-- 描述 -->
       <div class="field-editor__row">
         <label>描述</label>
         <input
@@ -112,24 +217,34 @@ import { ref, computed, watch } from 'vue'
 import { useSelectionStore } from '../../stores/selection'
 import { useProtocolStore } from '../../stores/protocol'
 import { isBitType, FIELD_TYPE_BYTES } from '../../models/field'
-import type { FieldType } from '../../models/field'
+import type { RepeatConfig } from '../../models/field'
 
 const selectionStore = useSelectionStore()
 const protocolStore = useProtocolStore()
 
 const field = computed(() => {
   if (!selectionStore.selectedFieldId) return null
-  return protocolStore.protocol.fields.find(f => f.id === selectionStore.selectedFieldId) || null
+  // 递归查找
+  const allFields = protocolStore.allFields
+  return allFields.find(f => f.id === selectionStore.selectedFieldId) || null
 })
 
 // 编辑状态
 const editName = ref('')
-const editType = ref<FieldType>('u1')
+const editType = ref('u1')
 const editSize = ref(1)
 const editSizeExpr = ref('')
+const editSizeEos = ref(false)
 const editEndian = ref('')
+const editBitEndian = ref('')
 const editEnumName = ref('')
 const editDescription = ref('')
+const editEncoding = ref('UTF-8')
+const editContents = ref('')
+const editCondition = ref('')
+const editRepeatMode = ref('')
+const editRepeatExpr = ref('')
+const editRepeatUntilExpr = ref('')
 
 // 当字段变化时同步编辑状态
 watch(field, (f) => {
@@ -138,22 +253,36 @@ watch(field, (f) => {
     editType.value = f.type
     editSize.value = f.size
     editSizeExpr.value = f.sizeExpr || ''
+    editSizeEos.value = f.sizeEos || false
     editEndian.value = f.endian || ''
+    editBitEndian.value = f.bitEndian || ''
     editEnumName.value = f.enumName || ''
     editDescription.value = f.description || ''
+    editEncoding.value = f.encoding || 'UTF-8'
+    editContents.value = f.contents
+      ? f.contents.map(b => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')
+      : ''
+    editCondition.value = f.condition || ''
+    editRepeatMode.value = f.repeat?.mode || ''
+    editRepeatExpr.value = f.repeat?.expr || ''
+    editRepeatUntilExpr.value = f.repeat?.untilExpr || ''
   }
 }, { immediate: true })
 
-/** 是否需要大小输入 */
+// 计算属性
+const isBitField = computed(() => isBitType(editType.value))
+const needsEncoding = computed(() => ['str', 'strz'].includes(editType.value))
+const canSizeEos = computed(() => ['str', 'bytes'].includes(editType.value))
 const needsSize = computed(() => {
-  return ['str', 'strz', 'bytes', 'custom'].includes(editType.value)
+  return ['str', 'strz', 'bytes', 'custom'].includes(editType.value) && !editSizeEos.value
+})
+const needsSizeExpr = computed(() => needsSize.value)
+
+const enumOptions = computed(() => {
+  return Array.from(protocolStore.protocol.enums.keys())
 })
 
-/** 是否需要大小表达式 */
-const needsSizeExpr = computed(() => {
-  return needsSize.value
-})
-
+// 事件处理
 function onNameChange() {
   if (field.value) {
     protocolStore.updateField(field.value.id, { name: editName.value })
@@ -162,19 +291,21 @@ function onNameChange() {
 
 function onTypeChange() {
   if (field.value) {
-    const updates: Partial<typeof field.value> = { type: editType.value }
+    const updates: Record<string, any> = { type: editType.value }
     if (isBitType(editType.value)) {
-      // bit类型，size设为0
       updates.size = 0
     } else if (['str', 'strz', 'bytes'].includes(editType.value)) {
-      // 变长类型，如果当前size为0则给默认值1
       if (field.value.size <= 0) {
         updates.size = 1
         editSize.value = 1
       }
     } else {
-      // 标量类型，自动设置对应字节数
       updates.size = FIELD_TYPE_BYTES[editType.value]
+    }
+    // 切换类型时清除 contents
+    if (editContents.value) {
+      editContents.value = ''
+      updates.contents = undefined
     }
     protocolStore.updateField(field.value.id, updates)
   }
@@ -188,7 +319,13 @@ function onSizeChange() {
 
 function onSizeExprChange() {
   if (field.value) {
-    protocolStore.updateField(field.value.id, { sizeExpr: editSizeExpr.value })
+    protocolStore.updateField(field.value.id, { sizeExpr: editSizeExpr.value || undefined })
+  }
+}
+
+function onSizeEosChange() {
+  if (field.value) {
+    protocolStore.updateField(field.value.id, { sizeEos: editSizeEos.value })
   }
 }
 
@@ -200,15 +337,64 @@ function onEndianChange() {
   }
 }
 
+function onBitEndianChange() {
+  if (field.value) {
+    protocolStore.updateField(field.value.id, {
+      bitEndian: editBitEndian.value as 'be' | 'le' | undefined,
+    })
+  }
+}
+
 function onEnumChange() {
   if (field.value) {
-    protocolStore.updateField(field.value.id, { enumName: editEnumName.value })
+    protocolStore.updateField(field.value.id, { enumName: editEnumName.value || undefined })
   }
 }
 
 function onDescChange() {
   if (field.value) {
-    protocolStore.updateField(field.value.id, { description: editDescription.value })
+    protocolStore.updateField(field.value.id, { description: editDescription.value || undefined })
+  }
+}
+
+function onEncodingChange() {
+  if (field.value) {
+    protocolStore.updateField(field.value.id, { encoding: editEncoding.value })
+  }
+}
+
+function onContentsChange() {
+  if (field.value) {
+    if (!editContents.value.trim()) {
+      protocolStore.updateField(field.value.id, { contents: undefined })
+      return
+    }
+    // 解析 hex 字符串: "AA 55" 或 "0xAA,0x55" 或 "AA55"
+    const cleaned = editContents.value.replace(/0x/gi, '').replace(/[,;\s]+/g, ' ').trim()
+    const bytes = cleaned.split(' ').filter(Boolean).map(s => parseInt(s, 16))
+    if (bytes.every(b => !isNaN(b) && b >= 0 && b <= 255)) {
+      protocolStore.updateField(field.value.id, { contents: bytes })
+    }
+  }
+}
+
+function onConditionChange() {
+  if (field.value) {
+    protocolStore.updateField(field.value.id, { condition: editCondition.value || undefined })
+  }
+}
+
+function onRepeatChange() {
+  if (field.value) {
+    let repeat: RepeatConfig | undefined
+    if (editRepeatMode.value) {
+      repeat = {
+        mode: editRepeatMode.value as 'eos' | 'expr' | 'until',
+        expr: editRepeatExpr.value || undefined,
+        untilExpr: editRepeatUntilExpr.value || undefined,
+      }
+    }
+    protocolStore.updateField(field.value.id, { repeat })
   }
 }
 
@@ -267,7 +453,7 @@ function onClose() {
 .field-editor__row label {
   font-size: 12px;
   color: #888;
-  min-width: 60px;
+  min-width: 70px;
   text-align: right;
 }
 
@@ -287,6 +473,10 @@ function onClose() {
   outline: none;
 }
 
+.field-editor__input:disabled {
+  opacity: 0.5;
+}
+
 .field-editor__select {
   background: #1e1e1e;
   border: 1px solid #555;
@@ -304,5 +494,14 @@ function onClose() {
 .field-editor__unit {
   font-size: 12px;
   color: #666;
+}
+
+.field-editor__hint {
+  font-size: 11px;
+  color: #666;
+}
+
+input[type="checkbox"] {
+  accent-color: #4285f4;
 }
 </style>
