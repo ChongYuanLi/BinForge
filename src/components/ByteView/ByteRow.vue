@@ -10,7 +10,7 @@
     <div class="byte-row__bits">
       <BitCell
         v-for="bit in 8"
-        :key="`${fieldVersion}-${bit - 1}`"
+        :key="bit - 1"
         :byteOffset="byteOffset"
         :bitIndex="bit - 1"
         @contextmenu="onBitContextMenu"
@@ -37,7 +37,6 @@ const emit = defineEmits<{
 }>()
 
 const byteViewStore = useByteViewStore()
-const fieldVersion = computed(() => byteViewStore.renderVersion)
 
 /** 偏移地址 (hex) */
 const offsetHex = computed(() => {

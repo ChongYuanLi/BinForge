@@ -183,9 +183,87 @@ export const useByteViewStore = defineStore('byteView', () => {
     )
   }
 
-  /** 获取指定bit位置的字段覆盖 */
+  /** 获取指定bit位置的字段覆盖（直接从 protocol store 读取，避免跨 store computed 缓存问题） */
   function getOverlaysAtBit(byteOffset: number, bitIndex: number): FieldOverlay[] {
-    return fieldOverlays.value.filter(o => {
+    const protocolStore = useProtocolStore()
+    const overlays: FieldOverlay[] = []
+    let off = 0
+    let bitOff = 0
+
+    function collect(fields: ProtocolField[], depth: number) {
+      for (const field of fields) {
+        const color = getFieldColor(field.id)
+        if (isBitType(field.type)) {
+          const bitCount = FIELD_TYPE_BITS[field.type]
+          if (field.bitRange) {
+            const [gs, ge] = field.bitRange
+            const sb = Math.floor(gs / 8)
+            const eb = Math.floor(ge / 8)
+            for (let b = sb; b <= eb; b++) {
+              overlays.push({
+                fieldId: field.id, fieldName: field.name || field.type, color: color.bg,
+                byteStart: b, byteEnd: b,
+                bitStart: b === sb ? gs % 8 : 0,
+                bitEnd: b === eb ? ge % 8 : 7,
+                depth, isBitField: true,
+              })
+            }
+            off = eb; bitOff = (ge % 8) + 1
+            while (bitOff >= 8) { bitOff -= 8; off++ }
+          } else {
+            const s = bitOff, e = bitOff + bitCount - 1
+            if (Math.floor(s / 8) === Math.floor(e / 8)) {
+              overlays.push({
+                fieldId: field.id, fieldName: field.name || field.type, color: color.bg,
+                byteStart: off, byteEnd: off,
+                bitStart: s % 8, bitEnd: e % 8,
+                depth, isBitField: true,
+              })
+            } else {
+              const gs2 = off * 8 + s, ge2 = gs2 + bitCount - 1
+              const sb2 = Math.floor(gs2 / 8), eb2 = Math.floor(ge2 / 8)
+              for (let b = sb2; b <= eb2; b++) {
+                overlays.push({
+                  fieldId: field.id, fieldName: field.name || field.type, color: color.bg,
+                  byteStart: b, byteEnd: b,
+                  bitStart: b === sb2 ? gs2 % 8 : 0,
+                  bitEnd: b === eb2 ? ge2 % 8 : 7,
+                  depth, isBitField: true,
+                })
+              }
+            }
+            bitOff += bitCount
+            while (bitOff >= 8) { bitOff -= 8; off++ }
+          }
+        } else {
+          if (bitOff > 0) { bitOff = 0; off++ }
+          let fb = FIELD_TYPE_BYTES[field.type]
+          if (field.type === 'str' || field.type === 'strz' || field.type === 'bytes') fb = field.size
+          else if (field.type === 'custom' && field.children) {
+            overlays.push({
+              fieldId: field.id, fieldName: field.name || field.customTypeName || 'custom', color: color.bg,
+              byteStart: off, byteEnd: off + field.size - 1,
+              depth, isBitField: false,
+            })
+            collect(field.children, depth + 1)
+            off += field.size
+            continue
+          } else { fb = field.size }
+          if (fb > 0) {
+            overlays.push({
+              fieldId: field.id, fieldName: field.name || field.type, color: color.bg,
+              byteStart: off, byteEnd: off + fb - 1,
+              depth, isBitField: false,
+            })
+            off += fb
+          }
+        }
+      }
+    }
+
+    collect(protocolStore.protocol.fields, 0)
+
+    return overlays.filter(o => {
       if (byteOffset < o.byteStart || byteOffset > o.byteEnd) return false
       if (o.isBitField && o.bitStart !== undefined && o.bitEnd !== undefined) {
         return o.byteStart === byteOffset && bitIndex >= o.bitStart && bitIndex <= o.bitEnd
