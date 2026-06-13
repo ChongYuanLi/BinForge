@@ -10,10 +10,6 @@
         <span class="context-menu__icon">+</span>
         新建字段
       </div>
-      <div class="context-menu__item" @click="onSetHex">
-        <span class="context-menu__icon">✎</span>
-        设置字节值
-      </div>
       <div class="context-menu__divider"></div>
       <div class="context-menu__item" @click="onQuickType('u1')">u1 (1字节)</div>
       <div class="context-menu__item" @click="onQuickType('u2')">u2 (2字节)</div>
@@ -139,18 +135,6 @@ function onQuickType(type: FieldType) {
     field.size = byteCount
     field.name = `field_${type}_${byteOffset}`
     protocolStore.addField(field)
-  }
-  hide()
-}
-
-/** 设置字节值 */
-function onSetHex() {
-  const value = prompt('输入十六进制值 (如 FF):', '00')
-  if (value !== null) {
-    const num = parseInt(value, 16)
-    if (!isNaN(num) && num >= 0 && num <= 255) {
-      byteViewStore.setByte(contextByteOffset.value, num)
-    }
   }
   hide()
 }
