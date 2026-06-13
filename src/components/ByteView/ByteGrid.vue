@@ -26,14 +26,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import ByteRow from './ByteRow.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useByteViewStore } from '../../stores/byteView'
 import { useSelectionStore } from '../../stores/selection'
+import { useProtocolStore } from '../../stores/protocol'
 
 const byteViewStore = useByteViewStore()
 const selectionStore = useSelectionStore()
+const protocolStore = useProtocolStore()
+
+// 字段变化时递增版本号，强制重建 BitCell 组件
+watch(
+  () => protocolStore.protocol.fields.length,
+  () => { byteViewStore.bumpVersion() }
+)
 const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null)
 
 /** 显示的字节数 */

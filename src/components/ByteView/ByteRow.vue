@@ -37,9 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const byteViewStore = useByteViewStore()
-
-/** 字段数量作为版本号，字段变化时强制 BitCell 重建 */
-const fieldVersion = computed(() => byteViewStore.fieldOverlays.length)
+const fieldVersion = computed(() => byteViewStore.renderVersion)
 
 /** 偏移地址 (hex) */
 const offsetHex = computed(() => {

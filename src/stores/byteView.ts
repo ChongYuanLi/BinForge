@@ -17,6 +17,12 @@ export const useByteViewStore = defineStore('byteView', () => {
   /** 每行显示的字节数 */
   const bytesPerRow = ref(1)
 
+  /** 渲染版本号，字段变化时递增，强制重建组件 */
+  const renderVersion = ref(0)
+  function bumpVersion(): void {
+    renderVersion.value++
+  }
+
   /** 设置数据 */
   function setData(newData: Uint8Array): void {
     data.value = newData
@@ -292,5 +298,7 @@ export const useByteViewStore = defineStore('byteView', () => {
     readFieldSignedValue,
     readFieldFloatValue,
     writeFieldValue,
+    renderVersion,
+    bumpVersion,
   }
 })
