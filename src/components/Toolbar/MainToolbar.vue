@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useProtocolStore } from '../../stores/protocol'
 import { useByteViewStore } from '../../stores/byteView'
 import { createEmptyProtocol } from '../../models/protocol'
@@ -71,6 +71,12 @@ const dataInputRef = ref<HTMLInputElement | null>(null)
 
 const protocolTitle = ref(protocolStore.protocol.title)
 const endian = ref(protocolStore.protocol.endian)
+
+// undo/redo 后同步工具栏状态
+watch(() => protocolStore.protocol, (p) => {
+  protocolTitle.value = p.title
+  endian.value = p.endian
+})
 
 const undoCount = computed(() => protocolStore.undoStack.length)
 const redoCount = computed(() => protocolStore.redoStack.length)

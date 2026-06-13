@@ -61,6 +61,23 @@ export const useProtocolStore = defineStore('protocol', () => {
     }
   }
 
+  /** 递归查找字段 */
+  function findFieldRecursive(
+    fields: ProtocolField[],
+    fieldId: string,
+  ): { field: ProtocolField; index: number; siblings: ProtocolField[] } | null {
+    for (let i = 0; i < fields.length; i++) {
+      if (fields[i].id === fieldId) {
+        return { field: fields[i], index: i, siblings: fields }
+      }
+      if (fields[i].children) {
+        const found = findFieldRecursive(fields[i].children!, fieldId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
   /** 添加字段 */
   function addField(field: ProtocolField, index?: number): void {
     saveSnapshot()
@@ -71,21 +88,21 @@ export const useProtocolStore = defineStore('protocol', () => {
     }
   }
 
-  /** 更新字段 */
+  /** 更新字段（递归搜索） */
   function updateField(fieldId: string, updates: Partial<ProtocolField>): void {
     saveSnapshot()
-    const idx = protocol.value.fields.findIndex(f => f.id === fieldId)
-    if (idx !== -1) {
-      protocol.value.fields[idx] = { ...protocol.value.fields[idx], ...updates }
+    const found = findFieldRecursive(protocol.value.fields, fieldId)
+    if (found) {
+      found.siblings[found.index] = { ...found.siblings[found.index], ...updates }
     }
   }
 
-  /** 删除字段 */
+  /** 删除字段（递归搜索） */
   function removeField(fieldId: string): void {
     saveSnapshot()
-    const idx = protocol.value.fields.findIndex(f => f.id === fieldId)
-    if (idx !== -1) {
-      protocol.value.fields.splice(idx, 1)
+    const found = findFieldRecursive(protocol.value.fields, fieldId)
+    if (found) {
+      found.siblings.splice(found.index, 1)
     }
   }
 
@@ -122,6 +139,24 @@ export const useProtocolStore = defineStore('protocol', () => {
     Object.assign(protocol.value, updates)
   }
 
+  /** 更新枚举定义 */
+  function updateEnum(name: string, enumDef: EnumDefinition): void {
+    saveSnapshot()
+    protocol.value.enums.set(name, enumDef)
+  }
+
+  /** 添加自定义子类型 */
+  function addCustomType(name: string): void {
+    saveSnapshot()
+    protocol.value.types.set(name, [])
+  }
+
+  /** 删除自定义子类型 */
+  function removeCustomType(name: string): void {
+    saveSnapshot()
+    protocol.value.types.delete(name)
+  }
+
   /** 加载协议 */
   function loadProtocol(p: ProtocolType): void {
     saveSnapshot()
@@ -142,6 +177,9 @@ export const useProtocolStore = defineStore('protocol', () => {
     removeField,
     addEnum,
     removeEnum,
+    updateEnum,
+    addCustomType,
+    removeCustomType,
     updateMeta,
     loadProtocol,
   }

@@ -40,9 +40,19 @@ function hoverField(fieldId: string | null) {
   selectionStore.hoverField(fieldId)
 }
 
-/** 根据 overlay 查找字段定义 */
+/** 根据 overlay 查找字段定义（递归搜索子字段） */
 function findField(fieldId: string): ProtocolField | undefined {
-  return protocolStore.protocol.fields.find(f => f.id === fieldId)
+  function search(fields: ProtocolField[]): ProtocolField | undefined {
+    for (const f of fields) {
+      if (f.id === fieldId) return f
+      if (f.children) {
+        const found = search(f.children)
+        if (found) return found
+      }
+    }
+    return undefined
+  }
+  return search(protocolStore.protocol.fields)
 }
 
 /** 获取字段的解析值（仅在字段第一字节显示） */
