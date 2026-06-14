@@ -44,6 +44,7 @@
             <option value="b8">b8 (8位)</option>
             <option value="b16">b16 (16位)</option>
             <option value="b32">b32 (32位)</option>
+            <option value="b_custom">自定义...</option>
           </optgroup>
           <optgroup label="字符串/字节">
             <option value="str">str (字符串)</option>
@@ -54,6 +55,20 @@
             <option v-for="name in customTypeNames" :key="name" :value="'custom:' + name">{{ name }}</option>
           </optgroup>
         </select>
+      </div>
+
+      <!-- 自定义 bit 位数 -->
+      <div class="field-editor__row" v-if="isBitField">
+        <label>位数</label>
+        <input
+          v-model="customBitCount"
+          class="field-editor__input"
+          type="number"
+          min="1"
+          max="64"
+          @change="onCustomBitChange"
+        />
+        <span class="field-editor__unit">bit</span>
       </div>
 
       <!-- 大小 -->
@@ -219,7 +234,8 @@
 import { ref, computed, watch } from 'vue'
 import { useSelectionStore } from '../../stores/selection'
 import { useProtocolStore } from '../../stores/protocol'
-import { isBitType, FIELD_TYPE_BYTES } from '../../models/field'
+import { isBitType, FIELD_TYPE_BYTES, getFieldBits } from '../../models/field'
+import type { FieldType } from '../../models/field'
 import type { RepeatConfig } from '../../models/field'
 
 const selectionStore = useSelectionStore()
@@ -248,12 +264,23 @@ const editCondition = ref('')
 const editRepeatMode = ref('')
 const editRepeatExpr = ref('')
 const editRepeatUntilExpr = ref('')
+const customBitCount = ref(8)
 
 // 当字段变化时同步编辑状态
 watch(field, (f) => {
   if (f) {
     editName.value = f.name
-    editType.value = f.type === 'custom' && f.customTypeName ? `custom:${f.customTypeName}` : f.type
+    if (f.type === 'custom' && f.customTypeName) {
+      editType.value = `custom:${f.customTypeName}`
+    } else if (isBitType(f.type) && !['b1','b2','b4','b8','b16','b32'].includes(f.type)) {
+      editType.value = 'b_custom'
+      customBitCount.value = getFieldBits(f.type)
+    } else {
+      editType.value = f.type
+    }
+    if (isBitType(f.type)) {
+      customBitCount.value = getFieldBits(f.type)
+    }
     editSize.value = f.size
     editSizeExpr.value = f.sizeExpr || ''
     editSizeEos.value = f.sizeEos || false
@@ -301,8 +328,12 @@ function onTypeChange() {
     const updates: Record<string, any> = {}
     const typeVal = editType.value
 
-    // 处理自定义类型 custom:xxx
-    if (typeVal.startsWith('custom:')) {
+    // 处理自定义 bit 位数
+    if (typeVal === 'b_custom') {
+      const bits = customBitCount.value || 8
+      updates.type = `b${bits}`
+      updates.size = 0
+    } else if (typeVal.startsWith('custom:')) {
       const customName = typeVal.substring(7)
       updates.type = 'custom'
       updates.customTypeName = customName
@@ -332,6 +363,17 @@ function onTypeChange() {
       updates.contents = undefined
     }
     protocolStore.updateField(field.value.id, updates)
+  }
+}
+
+function onCustomBitChange() {
+  if (field.value && isBitField.value) {
+    const bits = Math.max(1, Math.min(64, customBitCount.value || 1))
+    customBitCount.value = bits
+    protocolStore.updateField(field.value.id, {
+      type: `b${bits}` as FieldType,
+      size: 0,
+    })
   }
 }
 

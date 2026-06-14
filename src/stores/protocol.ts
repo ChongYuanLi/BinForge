@@ -80,30 +80,6 @@ export const useProtocolStore = defineStore('protocol', () => {
   }
 
   /**
-   * 获取字段的全局 bit 范围 [start, end)
-   * 返回 null 表示无法确定（如 size 为 0 且无 bitRange）
-   */
-  function getFieldBitRange(field: ProtocolField, byteOffset: number): [number, number] | null {
-    if (field.bitRange) {
-      return [field.bitRange[0], field.bitRange[1] + 1]
-    }
-    if (isBitType(field.type)) {
-      const bits = getFieldBits(field.type)
-      if (bits > 0) {
-        const start = byteOffset * 8
-        return [start, start + bits]
-      }
-    } else {
-      const bytes = field.size || getFieldBytes(field.type)
-      if (bytes > 0) {
-        const start = byteOffset * 8
-        return [start, start + bytes * 8]
-      }
-    }
-    return null
-  }
-
-  /**
    * 添加字段，自动处理与已有字段的重叠
    * 重叠策略：已有字段被新字段覆盖的部分会被移除/缩小/分割
    */
@@ -132,117 +108,90 @@ export const useProtocolStore = defineStore('protocol', () => {
    * newRange: 新字段的 [start, end) 全局 bit 范围
    */
   function resolveOverlaps(fields: ProtocolField[], newRange: [number, number]): void {
-    let byteOffset = 0
-    let bitOffset = 0
     const toRemove: number[] = []
     const toInsert: { index: number; fields: ProtocolField[] }[] = []
 
+    // 先计算所有字段的全局 bit 范围
+    const fieldRanges: { index: number; start: number; end: number }[] = []
+    let byteOffset = 0
+    let bitOffset = 0
+
     for (let i = 0; i < fields.length; i++) {
       const f = fields[i]
-      // 计算当前字段的字节偏移
-      let fieldByteOffset = byteOffset
-      if (isBitType(f.type) && f.bitRange) {
-        fieldByteOffset = Math.floor(f.bitRange[0] / 8)
-      }
-
-      const range = getFieldBitRange(f, fieldByteOffset)
-      if (!range) {
-        // 无法确定范围，跳过
-        if (!isBitType(f.type)) {
-          if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
-          byteOffset += f.size || getFieldBytes(f.type)
-        }
-        continue
-      }
-
-      const [fs, fe] = range
-      const [ns, ne] = newRange
-
-      // 判断是否重叠
-      if (fs < ne && ns < fe) {
-        // 有重叠
-        if (ns <= fs && ne >= fe) {
-          // 新字段完全覆盖 → 删除
-          toRemove.push(i)
-        } else if (ns <= fs && ne < fe) {
-          // 新字段覆盖左侧 → 从右侧缩小
-          if (isBitType(f.type)) {
-            const newBitStart = ne
-            const newBitCount = fe - ne
-            f.type = `b${newBitCount}` as FieldType
-            f.bitRange = [newBitStart, fe - 1]
-          } else {
-            const removedBytes = Math.ceil((ne - fs) / 8)
-            f.size -= removedBytes
-          }
-        } else if (ns > fs && ne >= fe) {
-          // 新字段覆盖右侧 → 从左侧缩小
-          if (isBitType(f.type)) {
-            const newBitCount = ns - fs
-            f.type = `b${newBitCount}` as FieldType
-            f.bitRange = [fs, ns - 1]
-          } else {
-            const removedBytes = Math.ceil((fe - ns) / 8)
-            f.size -= removedBytes
-          }
+      if (isBitType(f.type)) {
+        if (f.bitRange) {
+          fieldRanges.push({ index: i, start: f.bitRange[0], end: f.bitRange[1] + 1 })
+          const endByte = Math.floor(f.bitRange[1] / 8)
+          byteOffset = endByte
+          bitOffset = (f.bitRange[1] % 8) + 1
+          while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
         } else {
-          // 新字段在中间 → 分割成两个
-          if (isBitType(f.type)) {
-            const leftBits = ns - fs
-            const rightBits = fe - ne
-            const left: ProtocolField = {
-              ...f,
-              id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              type: `b${leftBits}` as FieldType,
-              bitRange: [fs, ns - 1],
-            }
-            const right: ProtocolField = {
-              ...f,
-              id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              type: `b${rightBits}` as FieldType,
-              bitRange: [ne, fe - 1],
-            }
-            toRemove.push(i)
-            toInsert.push({ index: i, fields: [left, right] })
-          } else {
-            const leftBytes = Math.floor((ns - fs) / 8)
-            const rightBytes = Math.floor((fe - ne) / 8)
-            const left: ProtocolField = {
-              ...f,
-              id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              size: leftBytes,
-            }
-            const right: ProtocolField = {
-              ...f,
-              id: `field_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-              size: rightBytes,
-            }
-            toRemove.push(i)
-            toInsert.push({ index: i, fields: [left, right] })
-          }
+          const bits = getFieldBits(f.type)
+          const start = byteOffset * 8 + bitOffset
+          fieldRanges.push({ index: i, start, end: start + bits })
+          bitOffset += bits
+          while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
         }
-      }
-
-      // 更新偏移
-      if (!isBitType(f.type)) {
-        if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
-        byteOffset += f.size || getFieldBytes(f.type)
       } else {
-        const bits = getFieldBits(f.type)
-        bitOffset += bits
-        while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
+        if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
+        const bytes = f.size || getFieldBytes(f.type)
+        if (bytes > 0) {
+          const start = byteOffset * 8
+          fieldRanges.push({ index: i, start, end: start + bytes * 8 })
+        }
+        byteOffset += bytes
       }
     }
 
-    // 执行删除和插入（从后往前处理索引）
-    const sortedRemove = toRemove.sort((a, b) => b - a)
-    for (const idx of sortedRemove) {
-      fields.splice(idx, 1)
+    const [ns, ne] = newRange
+
+    for (const { index: i, start: fs, end: fe } of fieldRanges) {
+      if (fs >= ne || ns >= fe) continue // 无重叠
+
+      const f = fields[i]
+
+      if (ns <= fs && ne >= fe) {
+        // 新字段完全覆盖 → 删除
+        toRemove.push(i)
+      } else if (ns <= fs && ne < fe) {
+        // 新字段覆盖左侧 → 保留右侧，转为 bit 字段
+        const remainBits = fe - ne
+        f.type = `b${remainBits}` as FieldType
+        f.bitRange = [ne, fe - 1]
+        f.size = 0
+      } else if (ns > fs && ne >= fe) {
+        // 新字段覆盖右侧 → 保留左侧，转为 bit 字段
+        const remainBits = ns - fs
+        f.type = `b${remainBits}` as FieldType
+        f.bitRange = [fs, ns - 1]
+        f.size = 0
+      } else {
+        // 新字段在中间 → 分割成左右两个 bit 字段
+        const leftBits = ns - fs
+        const rightBits = fe - ne
+        toRemove.push(i)
+        toInsert.push({
+          index: i,
+          fields: [
+            {
+              ...f, id: `field_${Date.now()}_L`,
+              type: `b${leftBits}` as FieldType, size: 0, bitRange: [fs, ns - 1],
+            },
+            {
+              ...f, id: `field_${Date.now()}_R`,
+              type: `b${rightBits}` as FieldType, size: 0, bitRange: [ne, fe - 1],
+            },
+          ],
+        })
+      }
     }
+
+    // 从后往前执行删除和插入
+    const sortedRemove = toRemove.sort((a, b) => b - a)
+    for (const idx of sortedRemove) fields.splice(idx, 1)
     const sortedInsert = toInsert.sort((a, b) => b.index - a.index)
     for (const { index, fields: newFields } of sortedInsert) {
       fields.splice(index, 0, ...newFields.filter(f => {
-        // 过滤掉大小为 0 的字段
         if (isBitType(f.type)) return getFieldBits(f.type) > 0
         return (f.size || getFieldBytes(f.type)) > 0
       }))
