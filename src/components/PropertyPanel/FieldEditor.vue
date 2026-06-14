@@ -38,13 +38,7 @@
             <option value="f8">f8 (8字节)</option>
           </optgroup>
           <optgroup label="位字段">
-            <option value="b1">b1 (1位)</option>
-            <option value="b2">b2 (2位)</option>
-            <option value="b4">b4 (4位)</option>
-            <option value="b8">b8 (8位)</option>
-            <option value="b16">b16 (16位)</option>
-            <option value="b32">b32 (32位)</option>
-            <option value="b_custom">自定义...</option>
+            <option value="bit">bit (位字段)</option>
           </optgroup>
           <optgroup label="字符串/字节">
             <option value="str">str (字符串)</option>
@@ -57,7 +51,7 @@
         </select>
       </div>
 
-      <!-- 自定义 bit 位数 -->
+      <!-- bit 位数 -->
       <div class="field-editor__row" v-if="isBitField">
         <label>位数</label>
         <input
@@ -272,14 +266,11 @@ watch(field, (f) => {
     editName.value = f.name
     if (f.type === 'custom' && f.customTypeName) {
       editType.value = `custom:${f.customTypeName}`
-    } else if (isBitType(f.type) && !['b1','b2','b4','b8','b16','b32'].includes(f.type)) {
-      editType.value = 'b_custom'
+    } else if (isBitType(f.type)) {
+      editType.value = 'bit'
       customBitCount.value = getFieldBits(f.type)
     } else {
       editType.value = f.type
-    }
-    if (isBitType(f.type)) {
-      customBitCount.value = getFieldBits(f.type)
     }
     editSize.value = f.size
     editSizeExpr.value = f.sizeExpr || ''
@@ -300,7 +291,7 @@ watch(field, (f) => {
 }, { immediate: true })
 
 // 计算属性
-const isBitField = computed(() => isBitType(editType.value))
+const isBitField = computed(() => editType.value === 'bit' || isBitType(editType.value))
 const needsEncoding = computed(() => ['str', 'strz'].includes(editType.value))
 const canSizeEos = computed(() => ['str', 'bytes'].includes(editType.value))
 const needsSize = computed(() => {
@@ -328,8 +319,8 @@ function onTypeChange() {
     const updates: Record<string, any> = {}
     const typeVal = editType.value
 
-    // 处理自定义 bit 位数
-    if (typeVal === 'b_custom') {
+    // 处理 bit 位字段
+    if (typeVal === 'bit') {
       const bits = customBitCount.value || 8
       updates.type = `b${bits}`
       updates.size = 0
