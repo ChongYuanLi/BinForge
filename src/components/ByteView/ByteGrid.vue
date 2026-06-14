@@ -1,5 +1,5 @@
 <template>
-  <div class="byte-grid" @mouseup.left="onMouseUp">
+  <div class="byte-grid" :key="gridKey" @mouseup.left="onMouseUp">
     <!-- 表头 -->
     <div class="byte-grid__header">
       <div class="byte-grid__header-offset">Offset</div>
@@ -31,9 +31,14 @@ import ByteRow from './ByteRow.vue'
 import ContextMenu from './ContextMenu.vue'
 import { useByteViewStore } from '../../stores/byteView'
 import { useSelectionStore } from '../../stores/selection'
+import { useProtocolStore } from '../../stores/protocol'
 
 const byteViewStore = useByteViewStore()
 const selectionStore = useSelectionStore()
+const protocolStore = useProtocolStore()
+
+/** 字段数量变化时改变 key，强制整个网格重建 */
+const gridKey = computed(() => protocolStore.protocol.fields.length)
 
 const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null)
 
