@@ -134,7 +134,7 @@ const fieldOverlays = computed(() => {
 
 const topOverlay = computed(() => {
   if (fieldOverlays.value.length === 0) return null
-  return fieldOverlays.value.reduce((a, b) => b.depth > a.depth ? b : a)
+  return fieldOverlays.value.reduce((a, b) => b.depth >= a.depth ? b : a)
 })
 
 const bitLabel = computed(() => `b${7 - props.bitIndex}`)
