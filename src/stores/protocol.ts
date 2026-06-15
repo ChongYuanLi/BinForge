@@ -80,8 +80,51 @@ export const useProtocolStore = defineStore('protocol', () => {
   }
 
   /**
-   * 添加字段，自动处理与已有字段的重叠
-   * 重叠策略：已有字段被新字段覆盖的部分会被移除/缩小/分割
+   * 计算字段的全局 bit 起始位置（用于排序）
+   * 注意：调用前需要知道字段的字节偏移，这里用 fields 数组顺序推算
+   */
+  function getFieldsSortedInsertIndex(fields: ProtocolField[], newField: ProtocolField): number {
+    // 计算新字段的起始 bit 位置
+    const newStart = newField.bitRange
+      ? newField.bitRange[0]
+      : 0 // 无 bitRange 的字段暂时追加到末尾
+
+    let byteOffset = 0
+    let bitOffset = 0
+
+    for (let i = 0; i < fields.length; i++) {
+      const f = fields[i]
+      let fieldStart: number
+
+      if (f.bitRange) {
+        fieldStart = f.bitRange[0]
+      } else if (isBitType(f.type)) {
+        fieldStart = byteOffset * 8 + bitOffset
+      } else {
+        if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
+        fieldStart = byteOffset * 8
+      }
+
+      if (newStart < fieldStart) return i
+
+      // 推进偏移
+      if (isBitType(f.type)) {
+        const bits = f.bitRange
+          ? f.bitRange[1] - f.bitRange[0] + 1
+          : getFieldBits(f.type)
+        bitOffset += bits
+        while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
+      } else {
+        if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
+        byteOffset += f.size || getFieldBytes(f.type)
+      }
+    }
+
+    return fields.length // 追加到末尾
+  }
+
+  /**
+   * 添加字段，自动处理与已有字段的重叠，并按位置插入到正确顺序
    */
   function addField(field: ProtocolField, index?: number): void {
     saveSnapshot()
@@ -98,7 +141,9 @@ export const useProtocolStore = defineStore('protocol', () => {
     if (index !== undefined) {
       protocol.value.fields.splice(index, 0, field)
     } else {
-      protocol.value.fields.push(field)
+      // 按位置插入到正确的顺序
+      const insertIndex = getFieldsSortedInsertIndex(protocol.value.fields, field)
+      protocol.value.fields.splice(insertIndex, 0, field)
     }
   }
 
