@@ -43,12 +43,8 @@ const offsetHex = computed(() => {
   return '0x' + props.byteOffset.toString(16).toUpperCase().padStart(4, '0')
 })
 
-/** 字节的十六进制值 */
-const hexValue = computed(() => {
-  const byte = byteViewStore.data[props.byteOffset]
-  if (byte === undefined) return '--'
-  return byte.toString(16).toUpperCase().padStart(2, '0')
-})
+/** 字节的十六进制值 — 协议定义工具不显示数据值 */
+const hexValue = computed(() => '--')
 
 /** 此字节处的字段覆盖 */
 const fieldOverlays = computed(() => {
