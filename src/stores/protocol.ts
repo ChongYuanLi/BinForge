@@ -84,11 +84,13 @@ export const useProtocolStore = defineStore('protocol', () => {
    * 注意：调用前需要知道字段的字节偏移，这里用 fields 数组顺序推算
    */
   function getFieldsSortedInsertIndex(fields: ProtocolField[], newField: ProtocolField): number {
-    // 计算新字段的起始 bit 位置
-    const newStart = newField.bitRange
-      ? newField.bitRange[0]
-      : 0 // 无 bitRange 的字段暂时追加到末尾
+    // 有 bitRange 的字段：按位置插入到正确的顺序
+    // 无 bitRange 的字段：追加到末尾（顺序布局）
+    if (!newField.bitRange) {
+      return fields.length
+    }
 
+    const newStart = newField.bitRange[0]
     let byteOffset = 0
     let bitOffset = 0
 
@@ -108,11 +110,13 @@ export const useProtocolStore = defineStore('protocol', () => {
       if (newStart < fieldStart) return i
 
       // 推进偏移
-      if (isBitType(f.type)) {
-        const bits = f.bitRange
-          ? f.bitRange[1] - f.bitRange[0] + 1
-          : getFieldBits(f.type)
-        bitOffset += bits
+      if (f.bitRange) {
+        const endByte = Math.floor(f.bitRange[1] / 8)
+        byteOffset = endByte
+        bitOffset = (f.bitRange[1] % 8) + 1
+        while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
+      } else if (isBitType(f.type)) {
+        bitOffset += getFieldBits(f.type)
         while (bitOffset >= 8) { bitOffset -= 8; byteOffset++ }
       } else {
         if (bitOffset > 0) { bitOffset = 0; byteOffset++ }
@@ -120,7 +124,7 @@ export const useProtocolStore = defineStore('protocol', () => {
       }
     }
 
-    return fields.length // 追加到末尾
+    return fields.length
   }
 
   /**
@@ -134,17 +138,24 @@ export const useProtocolStore = defineStore('protocol', () => {
       ? [field.bitRange[0], field.bitRange[1] + 1]
       : null
 
+    console.log(`[addField] new field: type=${field.type} bitRange=${JSON.stringify(field.bitRange)} newRange=${JSON.stringify(newRange)}`)
+    console.log(`[addField] before resolve:`, protocol.value.fields.map(f => `${f.type} bitRange=${JSON.stringify(f.bitRange)} size=${f.size}`))
+
     if (newRange) {
       resolveOverlaps(protocol.value.fields, newRange)
     }
 
+    console.log(`[addField] after resolve:`, protocol.value.fields.map(f => `${f.type} bitRange=${JSON.stringify(f.bitRange)} size=${f.size}`))
+
     if (index !== undefined) {
       protocol.value.fields.splice(index, 0, field)
     } else {
-      // 按位置插入到正确的顺序
       const insertIndex = getFieldsSortedInsertIndex(protocol.value.fields, field)
+      console.log(`[addField] insertIndex=${insertIndex}`)
       protocol.value.fields.splice(insertIndex, 0, field)
     }
+
+    console.log(`[addField] final:`, protocol.value.fields.map(f => `${f.type} bitRange=${JSON.stringify(f.bitRange)} size=${f.size}`))
   }
 
   /**
