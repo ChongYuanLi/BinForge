@@ -105,7 +105,12 @@ function onDoubleClick() {
 }
 
 .field-item--selected {
-  background-color: rgba(66, 133, 244, 0.15);
+  background-color: rgba(66, 133, 244, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(66, 133, 244, 0.4);
+}
+
+.field-item--selected .field-item__name {
+  color: #fff;
 }
 
 .field-item--hovered {

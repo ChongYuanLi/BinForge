@@ -193,7 +193,17 @@ function onClick() {
   transition: background-color 0.1s;
 }
 .bit-cell:hover { border-color: #888; z-index: 1; }
-.bit-cell--selected { border-color: #fff; border-width: 2px; z-index: 2; }
+.bit-cell--selected {
+  border-color: #fff;
+  border-width: 2px;
+  z-index: 2;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.3);
+  filter: brightness(1.4);
+}
+.bit-cell--selected .bit-cell__label {
+  color: #fff;
+  font-weight: 700;
+}
 .bit-cell--dragging { background-color: rgba(255, 255, 255, 0.15) !important; border-color: #4285f4; }
 .bit-cell--has-field { border-color: rgba(255, 255, 255, 0.15); }
 .bit-cell__label {
